@@ -1,5 +1,5 @@
-const { AuthenticationError, buildSchemaFromTypeDefinitions } = require('apollo-server-express');
-const { User } = require('../models');
+const { AuthenticationError } = require('apollo-server-express');
+const { User, Book } = require('../models');
 const { signToken } = require('../utils/auth');
 
 const resolvers = {
@@ -8,26 +8,12 @@ const resolvers = {
             if (context.user) {
                 const userData = await User.findOne({ _id: context.user._id })
                     .select('-__v -password')
-                    .populate('savedBooks');
                 
                 return userData;
             }
 
             throw new AuthenticationError('Not logged in');
-        },
-
-        users: async () => {
-            return User.find()
-                .select('-__v -password')
-                .populate('savedBooks');
-        },
-
-        user: async (parent, { username }) => {
-            return User.findOne({ username })
-                .select('-__v -password')
-                .populate('savedBooks');
         }
-
     },
 
     Mutation: {
@@ -56,29 +42,29 @@ const resolvers = {
             return { token, user };
         },
 
-        saveBook: async (parent, { body }, context) => {
+        saveBook: async (parent, { input }, context) => {
             if (context.user) {
                 const updatedUser = await User.findOneAndUpdate(
                     { _id: context.user._id },
-                    { $push: { savedBooks: { body } } },
-                    { new: true, runValidators: true }
+                    { $addToSet: { savedBooks: input } },
+                    { new: true }
                 );
                 return updatedUser;
             } 
-            throw new AuthenticationError('Not logged in');
+            throw new AuthenticationError('You need to be logged in!');
         },
         
-        removeBook: async (parent, { savedBooks, bookId }, context) => {
+        removeBook: async (parent, args, context) => {
             if (context.user) {
                 const updatedUser = await User.findOneAndUpdate(
                     { _id: context.user._id },
-                    { $pull: { savedBooks: { bookId: bookId}}},
+                    { $pull: { savedBooks: { bookId: args.bookId}}},
                     { new: true } 
                 );
 
                 return updatedUser;
             }
-            throw new AuthenticationError('Not logged in');
+            throw new AuthenticationError('You need to be logged in!');
             
         }
     }
